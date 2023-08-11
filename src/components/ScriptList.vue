@@ -56,7 +56,7 @@ console.log(props.scripts)
 
 <style scoped>
 .container {
-    width: 360px;
+    width: 400px;
     background-color: rgba(255, 228, 196, 0.195);
     display: flex;
     flex-direction: column;

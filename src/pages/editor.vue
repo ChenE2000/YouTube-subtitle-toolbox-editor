@@ -25,7 +25,7 @@
 
     <div>currentTime:
         <MinusCircleOutlined @click="currentTime -= 1" />
-        <input v-model="currentTime">
+        <input type="number" v-model="currentTime">
         <PlusCircleOutlined @click="currentTime += 1" />
     </div>
     <div>timeInSight: {{ timeInSight }}</div>
@@ -35,7 +35,7 @@
     <!-- <div>groupedSentences: {{ groupedSentences }}</div> -->
     <div @mousewheel="onChangeZooming">zooming:
         <MinusCircleOutlined @click="zooming -= 10" />
-        <input v-model="zooming">
+        <input type="number" v-model="zooming">
         <PlusCircleOutlined @click="zooming += 10" />
     </div>
 
@@ -62,12 +62,12 @@
             <div class="time-ruler">
                 <div v-for="n in numberOfTicks" :key="n" :style="{ 'margin-left': `${(n - 1) * timeUnit * zooming}px` }"
                     class="tick">
-                    <div class="label">{{ n - 1 + currentTime }}</div>
+                    <div class="label">{{ formatTime(n - 1 + currentTime) }}</div>
                 </div>
 
             </div>
             <div class="indicator">
-                <div>{{ currentTime }}</div>
+                <div>{{ formatTime(cursorTime) }}</div>
                 <div style="font-size: 20px;">words remaining: {{ wordLeft }}</div>
             </div>
         </div>
@@ -230,6 +230,7 @@ export default {
             // time * zooming = pixels
             dy: 0,
             currentTime: 0,
+            cursorTime: 0,
             zooming: 110,
             isSelecting: false,
             startPoint: { x: 0, y: 0 },
@@ -256,7 +257,7 @@ export default {
                 content: null
             },
             save: {
-                open: true
+                open: false
             }
 
 
@@ -321,17 +322,9 @@ export default {
             },
             immediate: true
         },
-
-        // timeInSight() {
-        //     this.divs = sentences.filter((sentence) => {
-        //         return sentence.time >= this.timeInSight.start && sentence.time <= this.timeInSight.end;
-        //     });
-        // }
     },
     methods: {
-        // backToHome() {
-        //     router.push(`/`);
-        // },
+        formatTime: formatTime,
         boxStyle(div) {
             if (div.sentenceID == -1) {
                 return {
@@ -341,7 +334,7 @@ export default {
             }
             return {
                 // 根据sentenceID%6分配一个背景颜色
-                'background-color': `hsl(${div.sentenceID % 6 * 60}, 100%, 90%)`,
+                'background-color': `hsl(${div.sentenceID % 6 * 60}, 100%, 80%)`,
                 'left': `${(div.time - this.currentTime) * this.zooming}px`
             }
         },
@@ -380,12 +373,12 @@ export default {
         },
         onChangeZooming(e) {
             if (e.wheelDeltaY > 0) {
-                if (this.zooming + 2 > 200) {
+                if (this.zooming + 2 > 220) {
                     return
                 }
                 this.zooming += 2
             } else {
-                if (this.zooming - 2 < 70) {
+                if (this.zooming - 2 < 100) {
                     return
                 }
 
@@ -420,12 +413,13 @@ export default {
         },
 
         onMouseMove(e) {
+            this.cursorTime = this.currentTime + (e.clientX-80)/this.zooming
             // this.indicatorLeft = e.clientX-167;
             if (!this.isSelecting) return;
             // 获取距离父div的x, y
             this.endPoint.x = e.clientX;
             this.endPoint.y = e.clientY;
-
+            
             this.checkSelection();
         },
         // indicatorListener(e) {
