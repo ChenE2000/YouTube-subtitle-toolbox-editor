@@ -1,11 +1,12 @@
 <template>
-    <div class="container">
+    <div class="list">
         <!-- groupedSentences -->
         <!-- {{ scripts }}
     {{ Object.keys(scripts)   }} -->
         <div v-for="(k, index) in Object.keys(scripts)" :key="index" >
             <div class="time">{{ formatTime(scripts[k][0].time) }} - {{ formatTime(scripts[k][scripts[k].length - 1].time) }}</div>
-            <div class="row">
+            <div class="row" :style="{ 'borderLeft': `5px solid hsl(${scripts[k][0].sentenceID % 6 * 60}, 100%, 80%)` }">
+                <!-- 'background-color': `hsl(${div.sentenceID % 6 * 60}, 100%, 80%)`, -->
                 <div v-for="(sentence, index) in scripts[k]" :key="index" class="word">
                     {{ sentence.word }}
                 </div>
@@ -55,12 +56,16 @@ console.log(props.scripts)
 
 
 <style scoped>
-.container {
-    width: 400px;
-    background-color: rgba(255, 228, 196, 0.195);
+.list {
+    font-family: popins, sans-serif;
+    font-size: 13px;
+    padding: 5px;
+    width: 100%;
+    background-color: rgba(167, 167, 167, 0.143);
     display: flex;
     flex-direction: column;
     overflow-y: scroll;
+    height: 240px;
 }
 
 .row {
@@ -73,6 +78,8 @@ console.log(props.scripts)
 }
 
 .time {
+    color: rgba(0, 0, 0, 0.488);
+    font-size: 9px;
     margin-top: 3px;
     border-top: 1px solid #cccccc9b;
 }
