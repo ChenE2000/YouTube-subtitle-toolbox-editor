@@ -1,5 +1,5 @@
 <template>
-    <header p="y-4" flex="~ items-center">
+    <header flex="~ items-center">
         <h1 text="gray 3xl" font="bold">
             <span text-primary>Subtitle</span> toolbox
         </h1>
@@ -7,23 +7,24 @@
             <!-- <a-button @click="json.open = true">
                 import
             </a-button> -->
-            <!-- <a-button @click="save.open = true">
+            <a-button size="small" @click="onHandleSave">
                 save
-            </a-button> -->
-            <a-button @click="exportASS">
+            </a-button>
+            <a-button size="small" @click="exportASS">
                 export
             </a-button>
         </div>
     </header>
 
-    <div>startPoint: {{ startPoint }}</div>
-    <div>numberOfTicks: {{ numberOfTicks }}</div>
-    <div>isSelecting: {{ isSelecting }}</div>
+    <!-- <div>startPoint: {{ startPoint }}</div> -->
+    <!-- <div>numberOfTicks: {{ numberOfTicks }}</div> -->
+    <!-- <div>isSelecting: {{ isSelecting }}</div> -->
     <!-- <div>{{ sentences }}</div> -->
     <!-- <div>indicatorLeft: {{ indicatorLeft }}</div> -->
-    <div>currentGroupID: {{ currentGroupID }}</div>
+    <!-- <div>currentGroupID: {{ currentGroupID }}</div> -->
     <!-- <div>groupedSentences: {{ groupedSentences }}</div> -->
-    <div>ctrlPressed: {{ ctrlPressed }}</div>
+    <!-- <div>ctrlPressed: {{ ctrlPressed }}</div> -->
+    <!-- <div>videoCurTime: {{ videoCurTime }}</div> -->
     <div>currentTime:
         <a-input-number id="inputCurrentTime" v-model:value="currentTime" size="small" />
     </div>
@@ -34,6 +35,10 @@
     <div>timeInSight: {{ timeInSight }}</div>
     <!-- <div style="margin: 20px;"></div> -->
 
+    <div flex="~">
+        <VideoPlayer :enable="false" @update:curTime="onUpdateCurTime" :curTime="videoCurTime" />
+        <script-list :scripts="groupedSentences" />
+    </div>
 
 
     <div class="root-container">
@@ -56,12 +61,11 @@
 
             </div>
             <div class="indicator">
+                <div class="marker" :style="markerStyle"></div>
                 <div>{{ formatTime(cursorTime) }}</div>
                 <div style="font-size: 20px;">words remaining: {{ wordLeft }}</div>
             </div>
         </div>
-
-        <script-list :scripts="groupedSentences"></script-list>
     </div>
 
     <a-modal v-model:open="edit.open" title="change content">
@@ -71,17 +75,20 @@
 
     <a-modal :width="800" v-model:open="ass.open" title="results.ass">
         <template #footer>
-            <a-button @click="handleCopyASS" key="back">Return</a-button>
+            <!-- @click="handleCopyASS(ass.content)" -->
+            <a-button  key="back">Return</a-button>
         </template>
         <div>
             <div v-for="row in ass.content">{{ row }}</div>
         </div>
     </a-modal>
-    <a-modal @ok="loadData" v-model:open="json.open" title="vtt.json">
+    <!-- <a-modal @ok="loadData" v-model:open="json.open" title="vtt.json">
         <a-textarea v-model:value="json.content" :rows="8" />
-    </a-modal>
-    <a-modal v-model:open="save.open" title="save">
-        <a-textarea v-model:value="sentencesStr" :rows="8" />
+    </a-modal> -->
+    <a-modal v-model:open="save.open" title="save" :footer="null">
+        <!-- <a-textarea :value="sentencesStr" :rows="8" /> -->
+        <!-- {{ save.content }} -->
+        <a-button type="primary" @click="handleCopy(save.content)" :icon="h(SnippetsOutlined)">Copy to Clipboard</a-button>
     </a-modal>
 </template>
   
@@ -92,17 +99,20 @@
     --container-height: 400px;
 }
 
-.root-container {
+/* .root-container {
     display: flex;
     flex-direction: row;
     justify-content: space-between;
-}
+    overflow: hidden;
+    height: var(--container-height);
+} */
 
 .outer-container {
     display: flex;
     justify-content: space-between;
     flex-direction: column;
     overflow: hidden;
+    /* height: var(--container-height); */
 }
 
 .container {
@@ -123,6 +133,17 @@
     /* background: repeating-linear-gradient(90deg, #000, #000 1px, #fff 1px, #fff 5%); */
     /* 这会创建一个简单的刻度效果 */
 }
+
+.marker {
+    position: absolute;
+    width: 1px;
+    border: 1px dashed rgb(184, 0, 0);
+    height: 100%;
+    /* animation that makes it move smoothly */
+    transition: all 0.3s linear 0s;
+}
+
+
 
 .tick {
     position: absolute;
@@ -155,6 +176,7 @@
     font-size: 70px;
     user-select: none;
     pointer-events: none;
+    overflow: hidden;
 }
 
 .box {
@@ -200,10 +222,12 @@
 </style>
 
 <script setup lang="ts">
-// import { PlusCircleOutlined, MinusCircleOutlined } from '@ant-design/icons-vue';
+import { message } from 'ant-design-vue';
+import { PlusCircleOutlined, SnippetsOutlined } from '@ant-design/icons-vue';
 import subtitles from "~/assets/script.json";
 import ScriptList from "~/components/ScriptList.vue";
 import { formatTime } from '../utils/TimeFormatter'
+import VideoPlayer from "~/components/VideoPlayer.vue";
 
 interface Coord {
     x: number
@@ -228,7 +252,7 @@ let sentences = ref(subtitles.sentences.map((sentence) => {
     };
 }))
 
-
+let videoCurTime = ref(0)
 let currentTime = ref(0)
 let cursorTime = ref(0)
 let zooming = ref(110)
@@ -241,7 +265,6 @@ let timeUnit = ref(1)
 let ctrlPressed = ref<boolean>(false)
 //    let sentences = ref(sentences)
 let divs = ref([] as Word[])
-//    let ctrlPressed = ref<boolean>(false)
 let groupedSentences = ref({})
 let currentGroupID = ref(0)
 let wordLeft = ref(0)
@@ -257,8 +280,9 @@ let json = ref({
     open: false,
     content: "" as string
 })
-let save = ({
-    open: false
+let save = ref({
+    open: false as boolean,
+    content: "" as string
 })
 
 
@@ -272,6 +296,28 @@ let save = ({
 //     window.removeEventListener("keydown", this.handleKeydown);
 //     window.removeEventListener("keyup", this.handleKeyup);
 // },
+
+// const handleKeydown = (event) => {
+//     if (event.key === "Control") {
+//         ctrlPressed.value = true;
+//     }
+// }
+
+// const handleKeyup = (event) => {
+//     if (event.key === "Control") {
+//         ctrlPressed.value = false;
+//     }
+// }
+const onUpdateCurTime = (e: number) => {
+    videoCurTime.value = e
+}
+const markerStyle = computed(()=> {
+    const visible = timeInSight.value.start <= videoCurTime.value && videoCurTime.value <= timeInSight.value.end
+    return {
+        display: visible?"block":"none",
+        left: `${(videoCurTime.value - currentTime.value) * zooming.value}px`
+    };
+})
 
 const selectionStyle = computed(() => {
     const left = Math.min(startPoint.value.x, endPoint.value.x);
@@ -303,9 +349,23 @@ const timeInSight = computed(() => {
 
 })
 
-const sentencesStr = computed(() => {
-    return JSON.stringify(sentences.value)
-})
+const onHandleSave = () => {
+    save.value.open = true
+    save.value.content = sentencesStr()
+}
+
+const sentencesStr = () => {
+    const obj = {
+        "sentences": sentences.value.map((sentence) => {
+            return {
+                "chrs": sentence.word,
+                "start_time": sentence.time,
+                "sentence_id": sentence.sentenceID
+            }
+        })
+    }
+    return JSON.stringify(obj)
+}
 
 //Watch
 watch(timeInSight, () => {
@@ -349,17 +409,6 @@ const onMouseWheel = (e: any) => {
     }
 }
 
-// const handleKeydown = (event) => {
-//     if (event.key === "Control") {
-//         ctrlPressed.value = true;
-//     }
-// }
-
-// const handleKeyup = (event) => {
-//     if (event.key === "Control") {
-//         ctrlPressed.value = false;
-//     }
-// }
 
 const onChangeZooming = (e: any) => {
     if (e.wheelDeltaY > 0) {
@@ -467,7 +516,7 @@ const exportASS = () => {
         let row = `Dialogue: 0,${startTime},${endTime},Default,,0,0,0,,${text}`
         results.push(row)
     })
-    ass.value.content = results
+    ass.value.content = results.reverse()
 }
 
 
@@ -491,21 +540,21 @@ const loadData = () => {
     sentences.value = data
 }
 
-const handleCopyASS = () => {
+const handleCopy = (content: string) => {
     // let content = JSON.stringify(content_o)
     let aux = document.createElement("input");
     // join ass.value.content with \n
     // 获取assOutput的内容
     // const assOutput = ref()
 
-    aux.setAttribute("value", "123");
+    aux.setAttribute("value", content);
     document.body.appendChild(aux);
     aux.select();
     document.execCommand("copy");
     document.body.removeChild(aux);
 
     // navigator.clipboard.writeText()
-    // message.success(`copied to clipboard`)
+    message.success(`Copied to Clipboard`)
 }
 
 </script>
