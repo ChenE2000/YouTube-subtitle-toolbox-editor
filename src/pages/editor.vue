@@ -4,58 +4,47 @@
             <span text-primary>Subtitle</span> toolbox
         </h1>
         <div ml-auto>
-            <a-button @click="json.open = true">
+            <!-- <a-button @click="json.open = true">
                 import
-            </a-button>
-            <a-button @click="save.open = true">
+            </a-button> -->
+            <!-- <a-button @click="save.open = true">
                 save
-            </a-button>
+            </a-button> -->
             <a-button @click="exportASS">
                 export
             </a-button>
         </div>
-
-        <!-- <a-button @click="backToHome" ml-auto>
-            back
-        </a-button> -->
     </header>
 
-    <!-- <div>startPoint: {{ startPoint }}</div> -->
-    <!-- <div>numberOfTicks: {{ numberOfTicks }}</div> -->
-
+    <div>startPoint: {{ startPoint }}</div>
+    <div>numberOfTicks: {{ numberOfTicks }}</div>
+    <div>isSelecting: {{ isSelecting }}</div>
+    <!-- <div>{{ sentences }}</div> -->
+    <!-- <div>indicatorLeft: {{ indicatorLeft }}</div> -->
+    <div>currentGroupID: {{ currentGroupID }}</div>
+    <!-- <div>groupedSentences: {{ groupedSentences }}</div> -->
+    <div>ctrlPressed: {{ ctrlPressed }}</div>
     <div>currentTime:
-        <MinusCircleOutlined @click="currentTime -= 1" />
-        <input type="number" v-model="currentTime">
-        <PlusCircleOutlined @click="currentTime += 1" />
+        <a-input-number id="inputCurrentTime" v-model:value="currentTime" size="small" />
+    </div>
+
+    <div @mousewheel="onChangeZooming">zooming:
+        <a-input-number id="inputZooming" v-model:value="zooming" :step="10" size="small" />
     </div>
     <div>timeInSight: {{ timeInSight }}</div>
-    <!-- <div>isSelecting: {{ isSelecting }}</div> -->
-    <!-- <div>indicatorLeft: {{ indicatorLeft }}</div> -->
-    <!-- <div>currentGroupID: {{ currentGroupID }}</div> -->
-    <!-- <div>groupedSentences: {{ groupedSentences }}</div> -->
-    <div @mousewheel="onChangeZooming">zooming:
-        <MinusCircleOutlined @click="zooming -= 10" />
-        <input type="number" v-model="zooming">
-        <PlusCircleOutlined @click="zooming += 10" />
-    </div>
+    <!-- <div style="margin: 20px;"></div> -->
 
-    <div style="margin: 20px;"></div>
 
-    <!-- <div>ctrlPressed: {{ ctrlPressed }}</div> -->
+
     <div class="root-container">
         <div class="outer-container" @mousewheel="onMouseWheel" :style="{ 'width': `${timeLineTotalWidth}px` }">
             <div class="container" ref="container" @mousedown="onMouseDown" @mousemove="onMouseMove" @mouseup="onMouseUp">
                 <!-- :class="{ selected: div.isSelected }" -->
-                <div v-for="div in divs" :key="div.id" :style="boxStyle(div)" class="box" @click="onEditBox(div)">
-
+                <div v-for="(div, index) in divs" :key="index" :style="boxStyle(div)" class="box" @click="onEditBox(div)">
                     {{ div.word }}
-                    <!-- <input v-else v-model="div.word"> -->
                 </div>
 
                 <div v-if="isSelecting" :style="selectionStyle" class="selection"></div>
-                <!-- <button v-if="noWordInSight" @click="jumpToNext">
-                    jump to next
-                </button> -->
                 <a-button v-if="noWordInSight" @click="jumpToNext">jump to next</a-button>
 
             </div>
@@ -78,8 +67,15 @@
     <a-modal v-model:open="edit.open" title="change content">
         <a-input v-model:value="edit.content.word" placeholder="Basic usage" />
     </a-modal>
-    <a-modal width="400" v-model:open="ass.open" title="results.ass">
-        <div v-for="row in ass.content">{{ row }}</div>
+
+
+    <a-modal :width="800" v-model:open="ass.open" title="results.ass">
+        <template #footer>
+            <a-button @click="handleCopyASS" key="back">Return</a-button>
+        </template>
+        <div>
+            <div v-for="row in ass.content">{{ row }}</div>
+        </div>
     </a-modal>
     <a-modal @ok="loadData" v-model:open="json.open" title="vtt.json">
         <a-textarea v-model:value="json.content" :rows="8" />
@@ -93,7 +89,7 @@
 <style scoped>
 * {
     --container-width: 1000px;
-    --container-height: 580px;
+    --container-height: 400px;
 }
 
 .root-container {
@@ -203,299 +199,313 @@
 }
 </style>
 
-<script>
-import { PlusCircleOutlined, MinusCircleOutlined } from '@ant-design/icons-vue';
+<script setup lang="ts">
+// import { PlusCircleOutlined, MinusCircleOutlined } from '@ant-design/icons-vue';
 import subtitles from "~/assets/script.json";
 import ScriptList from "~/components/ScriptList.vue";
 import { formatTime } from '../utils/TimeFormatter'
 
-const sentences = subtitles.sentences.map((sentence) => {
+interface Coord {
+    x: number
+    y: number
+}
+
+interface Word {
+    isSelected: boolean
+    word: string
+    time: number
+    sentenceID: number
+    isClicked: boolean
+}
+
+let sentences = ref(subtitles.sentences.map((sentence) => {
     return {
-        id: sentence.id,
         isSelected: false,
         word: sentence.chrs,
         time: sentence.start_time,
         sentenceID: sentence.sentence_id,
         isClicked: false
     };
+}))
+
+
+let currentTime = ref(0)
+let cursorTime = ref(0)
+let zooming = ref(110)
+let isSelecting = ref<boolean>(false)
+let startPoint = ref<Coord>({ x: 0, y: 0 })
+let endPoint = ref<Coord>({ x: 0, y: 0 })
+let timeLineTotalWidth = ref(1000)
+let timeUnit = ref(1)
+//    let indicatorLeft= ref(1)
+let ctrlPressed = ref<boolean>(false)
+//    let sentences = ref(sentences)
+let divs = ref([] as Word[])
+//    let ctrlPressed = ref<boolean>(false)
+let groupedSentences = ref({})
+let currentGroupID = ref(0)
+let wordLeft = ref(0)
+let edit = ref({
+    open: false as boolean,
+    content: {} as Word,
+})
+let ass = ref({
+    open: false,
+    content: [] as string[],
+})
+let json = ref({
+    open: false,
+    content: "" as string
+})
+let save = ({
+    open: false
 })
 
-export default {
-    components: {
-        PlusCircleOutlined,
-        MinusCircleOutlined
-    },
-    data() {
+
+
+
+// mounted() {
+//     window.addEventListener("keydown", this.handleKeydown);
+//     window.addEventListener("keyup", this.handleKeyup);
+// },
+// beforeUnmount() {
+//     window.removeEventListener("keydown", this.handleKeydown);
+//     window.removeEventListener("keyup", this.handleKeyup);
+// },
+
+const selectionStyle = computed(() => {
+    const left = Math.min(startPoint.value.x, endPoint.value.x);
+    const top = Math.min(startPoint.value.y, endPoint.value.y);
+    const width = Math.abs(startPoint.value.x - endPoint.value.x);
+    const height = Math.abs(startPoint.value.y - endPoint.value.y);
+
+    return {
+        left: `${left}px`,
+        top: `${top}px`,
+        width: `${width}px`,
+        height: `${height}px`,
+    };
+})
+
+const noWordInSight = computed(() => {
+    return divs.value.length === 0;
+})
+
+const numberOfTicks = computed(() => {
+    return Math.floor(timeLineTotalWidth.value / (timeUnit.value * zooming.value)) + 1;
+})
+
+const timeInSight = computed(() => {
+    return {
+        start: currentTime.value,
+        end: currentTime.value + numberOfTicks.value * timeUnit.value,
+    };
+
+})
+
+const sentencesStr = computed(() => {
+    return JSON.stringify(sentences.value)
+})
+
+//Watch
+watch(timeInSight, () => {
+    divs.value = sentences.value.filter((sentence) => {
+        return sentence.time >= timeInSight.value.start && sentence.time <= timeInSight.value.end;
+    });
+    wordLeft.value = sentences.value.filter((sentence) => {
+        return sentence.time >= currentTime.value;
+    }).length
+}, { immediate: true })
+
+
+
+// formatTime: formatTime,
+const boxStyle = (div: Word) => {
+    if (div.sentenceID == -1) {
         return {
-            // time * zooming = pixels
-            dy: 0,
-            currentTime: 0,
-            cursorTime: 0,
-            zooming: 110,
-            isSelecting: false,
-            startPoint: { x: 0, y: 0 },
-            endPoint: { x: 0, y: 0 },
-            timeLineTotalWidth: 1000,
-            timeUnit: 1,
-            indicatorLeft: 0,
-            ctrlPressed: false,
-            sentences: sentences,
-            divs: sentences,
-            ctrlPressed: false,
-            groupedSentences: {},
-            currentGroupID: 0,
-            edit: {
-                open: false,
-                content: null,
-            },
-            ass: {
-                open: false,
-                content: null,
-            },
-            json: {
-                open: false,
-                content: null
-            },
-            save: {
-                open: false
-            }
-
-
-            // divs: [
-            //     { id: 1, isSelected: false, word: "hello", time: 1, sentenceID: 1 },
-            //     { id: 2, isSelected: false, word: "my", time: 2, sentenceID: 1 },
-            //     { id: 3, isSelected: false, word: "name", time: 3, sentenceID: 1 },
-            //     { id: 3, isSelected: false, word: "cy", time: 3.2, sentenceID: 1 },
-            //     // ... add as many divs as needed
-            // ],
-        };
-    },
-    mounted() {
-        window.addEventListener("keydown", this.handleKeydown);
-        window.addEventListener("keyup", this.handleKeyup);
-    },
-    beforeUnmount() {
-        window.removeEventListener("keydown", this.handleKeydown);
-        window.removeEventListener("keyup", this.handleKeyup);
-    },
-    computed: {
-        selectionStyle() {
-            const left = Math.min(this.startPoint.x, this.endPoint.x);
-            const top = Math.min(this.startPoint.y, this.endPoint.y);
-            const width = Math.abs(this.startPoint.x - this.endPoint.x);
-            const height = Math.abs(this.startPoint.y - this.endPoint.y);
-
-            return {
-                left: `${left}px`,
-                top: `${top}px`,
-                width: `${width}px`,
-                height: `${height}px`,
-            };
-        },
-        // 'left': `${(div.time - currentTime) * zooming}px`
-        noWordInSight() {
-            return this.divs.length === 0;
-        },
-        numberOfTicks() {
-            return Math.floor(this.timeLineTotalWidth / (this.timeUnit * this.zooming)) + 1;
-        },
-        timeInSight() {
-            return {
-                start: this.currentTime,
-                end: this.currentTime + this.numberOfTicks * this.timeUnit,
-            };
-
-        },
-        sentencesStr() {
-            return JSON.stringify(sentences)
-        }
-    },
-    watch: {
-        timeInSight: {
-            handler: function () {
-                this.divs = sentences.filter((sentence) => {
-                    return sentence.time >= this.timeInSight.start && sentence.time <= this.timeInSight.end;
-                });
-                this.wordLeft = sentences.filter((sentence) => {
-                    return sentence.time >= this.currentTime;
-                }).length
-            },
-            immediate: true
-        },
-    },
-    methods: {
-        formatTime: formatTime,
-        boxStyle(div) {
-            if (div.sentenceID == -1) {
-                return {
-                    'background-color': `hsl(0, 0%, 90%)`,
-                    'left': `${(div.time - this.currentTime) * this.zooming}px`
-                }
-            }
-            return {
-                // 根据sentenceID%6分配一个背景颜色
-                'background-color': `hsl(${div.sentenceID % 6 * 60}, 100%, 80%)`,
-                'left': `${(div.time - this.currentTime) * this.zooming}px`
-            }
-        },
-        preventZoomOnCtrlScroll(event) {
-            if (event.ctrlKey) {
-                event.preventDefault();
-            }
-        },
-        jumpToNext() {
-            this.currentTime = Math.floor(sentences[sentences.length - this.wordLeft].time)
-
-        },
-        onKeyDown(e) {
-            console.log(e)
-        },
-        onMouseWheel(e) {
-            if (e.wheelDeltaY > 0) {
-                if (this.currentTime - 0.5 < 0) {
-                    return
-                }
-                this.currentTime -= 0.5
-            } else {
-                this.currentTime += 0.5
-            }
-
-        },
-        handleKeydown(event) {
-            if (event.key === "Control") {
-                this.ctrlPressed = true;
-            }
-        },
-        handleKeyup(event) {
-            if (event.key === "Control") {
-                this.ctrlPressed = false;
-            }
-        },
-        onChangeZooming(e) {
-            if (e.wheelDeltaY > 0) {
-                if (this.zooming + 2 > 220) {
-                    return
-                }
-                this.zooming += 2
-            } else {
-                if (this.zooming - 2 < 100) {
-                    return
-                }
-
-                this.zooming -= 2
-            }
-        },
-        onMouseDown(e) {
-            console.log("mouse down")
-            this.isSelecting = true;
-            this.startPoint.x = e.clientX;
-            this.startPoint.y = e.clientY;
-            this.endPoint.x = e.clientX;
-            this.endPoint.y = e.clientY;
-        },
-        onMouseUp() {
-            console.log("mouse up")
-            this.isSelecting = false;
-            // 在此处检测框选范围
-            this.checkSelection();
-            // filter sentenceID != -1
-            let gs = sentences.filter((sentence) => sentence.sentenceID != -1)
-            // groupby sentenceID
-            gs = gs.reduce((r, a) => {
-                r[a.sentenceID] = [...r[a.sentenceID] || [], a]
-                return r
-            }, {})
-            // sort by first item's time
-            gs = Object.values(gs).sort((b, a) => a[0].time - b[0].time)
-
-            this.groupedSentences = gs
-            this.currentGroupID++;
-        },
-
-        onMouseMove(e) {
-            this.cursorTime = this.currentTime + (e.clientX-80)/this.zooming
-            // this.indicatorLeft = e.clientX-167;
-            if (!this.isSelecting) return;
-            // 获取距离父div的x, y
-            this.endPoint.x = e.clientX;
-            this.endPoint.y = e.clientY;
-            
-            this.checkSelection();
-        },
-        // indicatorListener(e) {
-        //     this.indicatorLeft = e.clientX-167;
-        // },
-
-        onEditBox(item) {
-            console.log(item)
-            this.edit.open = true;
-            this.edit.content = item;
-        },
-        handleOk() {
-            this.edit.open = false;
-        },
-        checkSelection() {
-            const left = Math.min(this.startPoint.x, this.endPoint.x);
-            const top = Math.min(this.startPoint.y, this.endPoint.y);
-            const right = Math.max(this.startPoint.x, this.endPoint.x);
-            const bottom = Math.max(this.startPoint.y, this.endPoint.y);
-
-            // 框选区域太小时，不进行检测
-            if (right - left < 10 || bottom - top < 5) return;
-
-            this.divs.forEach((div, index) => {
-                // get all div in container
-                const divElement = document.querySelector(".container .box:nth-child(" + (index + 1) + ")");
-                const divRect = divElement.getBoundingClientRect();
-
-                if (
-                    divRect.right > left &&
-                    divRect.left < right &&
-                    divRect.bottom > top &&
-                    divRect.top < bottom
-                ) {
-                    this.divs[index].isSelected = true;
-                    this.divs[index].sentenceID = this.currentGroupID
-                } else {
-                    this.divs[index].isSelected = false;
-                }
-            });
-        },
-        exportASS() {
-            // Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
-            this.ass.open = true
-            let results = []
-            console.log('keys', Object.keys(this.groupedSentences))
-            Object.keys(this.groupedSentences).forEach(k => {
-                // console.log(k)
-                let startTime = formatTime(this.groupedSentences[k][0].time)
-                let endTime = formatTime(this.groupedSentences[k][this.groupedSentences[k].length - 1].time)
-                let text = this.groupedSentences[k].map((sentence) => sentence.word).join(" ")
-                let row = `Dialogue: 0,${startTime},${endTime},Default,,0,0,0,,${text}`
-                results.push(row)
-            })
-
-            this.ass.content = results
-        },
-        addAttrToRawJSON(str) {
-            let obj = JSON.parse(str)
-            return obj.sentences.map((sentence) => {
-                return {
-                    id: sentence.id,
-                    isSelected: false,
-                    word: sentence.chrs,
-                    time: sentence.start_time,
-                    sentenceID: sentence.sentence_id,
-                    isClicked: false
-                };
-            })
-        },
-        loadData() {
-            const data = this.addAttrToRawJSON(this.json.content)
-            console.log(data)
-            this.json.open = false
-            // sentences = d 
+            'background-color': `hsl(0, 0%, 90%)`,
+            'left': `${(div.time - currentTime.value) * zooming.value}px`
         }
     }
+    return {
+        // 根据sentenceID%6分配一个背景颜色
+        'background-color': `hsl(${div.sentenceID % 6 * 60}, 100%, 80%)`,
+        'left': `${(div.time - currentTime.value) * zooming.value}px`
+    }
 }
+
+const jumpToNext = () => {
+    currentTime.value = Math.floor(sentences.value[sentences.value.length - wordLeft.value].time)
+}
+
+const onMouseWheel = (e: any) => {
+    if (e.wheelDeltaY > 0) {
+        if (currentTime.value - 0.5 < 0) {
+            return
+        }
+        currentTime.value -= 0.5
+    } else {
+        currentTime.value += 0.5
+    }
+}
+
+// const handleKeydown = (event) => {
+//     if (event.key === "Control") {
+//         ctrlPressed.value = true;
+//     }
+// }
+
+// const handleKeyup = (event) => {
+//     if (event.key === "Control") {
+//         ctrlPressed.value = false;
+//     }
+// }
+
+const onChangeZooming = (e: any) => {
+    if (e.wheelDeltaY > 0) {
+        if (zooming.value + 2 > 220) {
+            return
+        }
+        zooming.value += 2
+    } else {
+        if (zooming.value - 2 < 100) {
+            return
+        }
+
+        zooming.value -= 2
+    }
+}
+
+const onMouseDown = (e: any) => {
+    console.log("mouse down")
+    isSelecting.value = true;
+    startPoint.value.x = e.clientX;
+    startPoint.value.y = e.clientY;
+    endPoint.value.x = e.clientX;
+    endPoint.value.y = e.clientY;
+}
+
+const checkSelection = () => {
+    const left = Math.min(startPoint.value.x, endPoint.value.x);
+    const top = Math.min(startPoint.value.y, endPoint.value.y);
+    const right = Math.max(startPoint.value.x, endPoint.value.x);
+    const bottom = Math.max(startPoint.value.y, endPoint.value.y);
+
+    // 框选区域太小时，不进行检测
+    if (right - left < 10 || bottom - top < 5) return;
+
+    divs.value.forEach((div, index) => {
+        // get all div in container
+        const divElement = document.querySelector(".container .box:nth-child(" + (index + 1) + ")")!;
+        const divRect = divElement.getBoundingClientRect();
+
+        if (
+            divRect.right > left &&
+            divRect.left < right &&
+            divRect.bottom > top &&
+            divRect.top < bottom
+        ) {
+            div.isSelected = true;
+            div.sentenceID = currentGroupID.value
+        } else {
+            div.isSelected = false;
+        }
+    })
+}
+
+const onMouseUp = () => {
+    console.log("mouse up")
+    isSelecting.value = false;
+    // 在此处检测框选范围
+    checkSelection();
+    // filter sentenceID != -1
+    let gs = sentences.value.filter((sentence) => sentence.sentenceID != -1) as Word[]
+    // groupby sentenceID
+    gs = gs.reduce((r, a) => {
+        r[a.sentenceID] = [...r[a.sentenceID] || [], a]
+        return r
+    }, {}) as Word[]
+    // sort by first item's time
+    gs = Object.values(gs).sort((b, a) => a[0].time - b[0].time)
+
+    groupedSentences.value = gs
+    currentGroupID.value++;
+}
+
+const onMouseMove = (e: any) => {
+    cursorTime.value = currentTime.value + (e.clientX - 80) / zooming.value
+    // indicatorLeft = e.clientX - 167;
+    if (!isSelecting.value) return;
+    // 获取距离父div的x, y
+    endPoint.value.x = e.clientX;
+    endPoint.value.y = e.clientY;
+
+    checkSelection();
+}
+
+
+const onEditBox = (item: Word) => {
+    console.log(item)
+    edit.value.open = true;
+    edit.value.content = item;
+}
+// const handleOk = () => {
+//     edit.value.open = false;
+// }
+
+const exportASS = () => {
+    // Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+    ass.value.open = true
+    let results = [] as string[]
+    let exportSentences = groupedSentences.value as Word[];
+    console.log('keys', Object.keys(exportSentences))
+    Object.keys(exportSentences).forEach(k => {
+        // console.log(k)
+        let startTime = formatTime(exportSentences[k][0].time)
+        let endTime = formatTime(exportSentences[k][exportSentences[k].length - 1].time)
+        let text = exportSentences[k].map((sentence) => sentence.word).join(" ")
+        let row = `Dialogue: 0,${startTime},${endTime},Default,,0,0,0,,${text}`
+        results.push(row)
+    })
+    ass.value.content = results
+}
+
+
+
+const addAttrToRawJSON = (str: string) => {
+    let obj = JSON.parse(str)
+    return obj.sentences.map((sentence) => {
+        return {
+            id: sentence.id,
+            isSelected: false,
+            word: sentence.chrs,
+            time: sentence.start_time,
+            sentenceID: sentence.sentence_id,
+            isClicked: false
+        };
+    })
+}
+const loadData = () => {
+    const data = addAttrToRawJSON(json.value.content) as Word[]
+    json.value.open = false
+    sentences.value = data
+}
+
+const handleCopyASS = () => {
+    // let content = JSON.stringify(content_o)
+    let aux = document.createElement("input");
+    // join ass.value.content with \n
+    // 获取assOutput的内容
+    // const assOutput = ref()
+
+    aux.setAttribute("value", "123");
+    document.body.appendChild(aux);
+    aux.select();
+    document.execCommand("copy");
+    document.body.removeChild(aux);
+
+    // navigator.clipboard.writeText()
+    // message.success(`copied to clipboard`)
+}
+
 </script>
