@@ -71,6 +71,7 @@ console.log(props.scripts)
 .row {
     display: flex;
     flex-direction: row;
+    padding-left: 3px;
     /* justify-content: space-between; */
     /* align-items: center; */
     /* padding: 10px; */
