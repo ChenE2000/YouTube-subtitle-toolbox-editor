@@ -16,7 +16,7 @@ function goToProject(id: number) {
   router.push(`/project/${id}`);
 }
 function goToEditor() {
-  router.push(`/editor`);
+  router.push(`/project/new`);
 }
 
 </script>

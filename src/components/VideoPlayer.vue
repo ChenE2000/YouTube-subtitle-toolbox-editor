@@ -25,10 +25,10 @@ defineProps({
 });
 let curTime = ref(0);
 
-const videoRef = ref(null);
+const videoRef = ref(null) as any;
 
 onMounted(() => {
-    const videoElement = document.getElementById('video');
+    const videoElement = document.getElementById('video') as any;
     const ws = new WebSocket('ws://localhost:8000/ws/vc8UBSp1tz0');
 
     ws.onmessage = (event) => {
@@ -44,13 +44,12 @@ const emit = defineEmits(['update:curTime']);
 
 const updateTime =() => {
     curTime.value = videoRef.value.currentTime;
-    // emit('update:curTime', videoRef.value.currentTime);
     emit('update:curTime', curTime.value)
 }
 
-const setToSpecificTime = () => {
-    videoRef.value.currentTime = 10; // 例如设置时间为10秒
-}
+// const setToSpecificTime = () => {
+//     videoRef.value.currentTime = 10; // 例如设置时间为10秒
+// }
 
 
 </script>

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 const router = useRouter();
-function goToEditor() {
-  router.push(`/editor`);
+function newProject() {
+  router.push(`/project/new`);
 }
 </script>
 
@@ -10,7 +10,7 @@ function goToEditor() {
     <h1 text="gray 3xl" font="bold">
       <span text-primary>Subtitle</span> toolbox
     </h1>
-    <a-button @click="goToEditor" ml-auto>
+    <a-button @click="newProject" ml-auto>
       New Project
     </a-button>
   </header>

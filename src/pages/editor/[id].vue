@@ -21,7 +21,7 @@
     <!-- <div>isSelecting: {{ isSelecting }}</div> -->
     <!-- <div>{{ sentences }}</div> -->
     <!-- <div>indicatorLeft: {{ indicatorLeft }}</div> -->
-    <!-- <div>currentGroupID: {{ currentGroupID }}</div> -->
+    <div>currentGroupID: {{ currentGroupID }}</div>
     <!-- <div>groupedSentences: {{ groupedSentences }}</div> -->
     <!-- <div>ctrlPressed: {{ ctrlPressed }}</div> -->
     <!-- <div>videoCurTime: {{ videoCurTime }}</div> -->
@@ -36,7 +36,7 @@
     <!-- <div style="margin: 20px;"></div> -->
 
     <div flex="~">
-        <VideoPlayer :enable="true" @update:curTime="onUpdateCurTime" :curTime="videoCurTime" />
+        <VideoPlayer :enable="false" @update:curTime="onUpdateCurTime" :curTime="videoCurTime" />
         <script-list :scripts="groupedSentences" />
     </div>
 
