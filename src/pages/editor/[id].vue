@@ -68,7 +68,15 @@
         </div>
     </div>
 
-    <a-modal v-model:open="edit.open" title="Change Content" :footer="null">
+    <a-modal v-model:open="edit.open" title="Change Content">
+        <template #footer>
+            <a-button  key="capitalize" @click="onCapitalize">
+                Capitalize
+            </a-button>
+            <!-- <a-button type="primary" key="submit" @click="edit.open = false">
+                Submit
+            </a-button> -->
+        </template>
         <a-input v-model:value="edit.content.word" placeholder="empty" />
     </a-modal>
 
@@ -316,6 +324,10 @@ let save = ref({
 //         ctrlPressed.value = false;
 //     }
 // }
+const onCapitalize = () => {
+    let word = edit.value.content.word
+    edit.value.content.word = word.charAt(0).toUpperCase() + word.slice(1)
+}
 
 const goToHome = () => {
     router.push('/')
@@ -523,7 +535,7 @@ const exportASS = () => {
     Object.keys(exportSentences).forEach(k => {
         // console.log(k)
         let startTime = formatTime(exportSentences[k][0].time)
-        let endTime = formatTime(exportSentences[k][exportSentences[k].length - 1].time)
+        let endTime = formatTime(exportSentences[k][exportSentences[k].length - 1].time+0.015)
         exportSentences[k] = exportSentences[k].filter((item) => item!=="")
         let text = exportSentences[k].map((sentence) => sentence.word).join(" ")
         let row = `Dialogue: 0,${startTime},${endTime},Default,,0,0,0,,${text}`
