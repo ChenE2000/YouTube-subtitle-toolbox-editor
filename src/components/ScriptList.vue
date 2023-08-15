@@ -10,6 +10,14 @@
                 <div v-for="(sentence, index) in scripts[k]" :key="index" class="word">
                     {{ sentence.word }}
                 </div>
+
+                <a-popover title="Add Punctuation">
+                    <template #content>
+                        <a-button ml-1 v-for="punc in puctuations" size="small" type="primary" shape="circle" @click="onHandlePuncSelect(scripts[k][scripts[k].length - 1], punc)">{{ punc }}</a-button>
+                        <a-button ml-1 size="small" type="primary" shape="circle" @click="onHandlePuncClean(scripts[k][scripts[k].length - 1])">X</a-button>
+                    </template>
+                    <plus-square-outlined />
+                </a-popover>
             </div>
         </div>
     </div>
@@ -19,6 +27,7 @@
 <script setup lang="ts">
 
 // import from '../utils/TimeFormatter'
+import { PlusSquareOutlined } from '@ant-design/icons-vue';
 import { formatTime } from '../utils/TimeFormatter'
 
 const props = defineProps({
@@ -29,6 +38,16 @@ const props = defineProps({
 })
 console.log(props.scripts)
 
+const puctuations = ['.', ',', '?', '!', '...']
+
+const onHandlePuncClean = (item) => {
+    item.word = item.word.replace(/[.,\/#?!$%\^&\*;:{}=\-_`~()]/g, '')
+}
+
+const onHandlePuncSelect = (item, punc: string) => {
+    onHandlePuncClean(item)
+    item.word += punc
+}
 //watch props.scripts
 // watch(() => props.scripts, (newVal, oldVal) => {
 //     for (let i = 0; i < newVal.length; i++) {
