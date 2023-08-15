@@ -37,7 +37,7 @@
 
     <div flex="~">
         <VideoPlayer :enable="false" @update:curTime="onUpdateCurTime" :curTime="videoCurTime" />
-        <script-list :scripts="groupedSentences" />
+        <script-list :scripts="groupedSentences" @locate="onHandleLocate" />
     </div>
 
 
@@ -335,6 +335,11 @@ const goToHome = () => {
 const onUpdateCurTime = (e: number) => {
     videoCurTime.value = e
 }
+
+const onHandleLocate = (time: number) => {
+    currentTime.value = Math.floor(time)
+}
+
 const markerStyle = computed(()=> {
     const visible = timeInSight.value.start <= videoCurTime.value && videoCurTime.value <= timeInSight.value.end
     return {
@@ -407,12 +412,16 @@ watch(timeInSight, () => {
 const boxStyle = (div: Word) => {
     if (div.sentenceID == -1) {
         return {
+            
             'background-color': `hsl(0, 0%, 90%)`,
             'left': `${(div.time - currentTime.value) * zooming.value}px`
         }
     }
+    let border = div.isSelected ? '2' : '0'
+    
     return {
         // 根据sentenceID%6分配一个背景颜色
+        'border': `${border}px solid rgb(255, 123, 0)`,
         'background-color': `hsl(${div.sentenceID % 6 * 60}, 100%, 80%)`,
         'left': `${(div.time - currentTime.value) * zooming.value}px`
     }
