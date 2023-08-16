@@ -3,8 +3,9 @@
         <!-- groupedSentences -->
         <!-- {{ scripts }}
     {{ Object.keys(scripts)   }} -->
-        <div v-for="(k, index) in Object.keys(scripts)" :key="index" >
-            <div class="time" @click="onHandelLocate(scripts[k][0].time)">{{ formatTime(scripts[k][0].time) }} - {{ formatTime(scripts[k][scripts[k].length - 1].time) }}</div>
+        <div v-for="(k, index) in Object.keys(scripts)" :key="index">
+            <div class="time" @click="onHandelLocate(scripts[k][0].time)">{{ formatTime(scripts[k][0].time) }} - {{
+                formatTime(scripts[k][scripts[k].length - 1].time) }}</div>
             <div class="row" :style="rowStyle(scripts[k])">
                 <!-- 'background-color': `hsl(${div.sentenceID % 6 * 60}, 100%, 80%)`, -->
                 <div v-for="(sentence, index) in scripts[k]" :key="index" class="word">
@@ -13,8 +14,10 @@
 
                 <a-popover title="Add Punctuation">
                     <template #content>
-                        <a-button ml-1 v-for="punc in puctuations" size="small" type="primary" shape="circle" @click="onHandlePuncSelect(scripts[k][scripts[k].length - 1], punc)">{{ punc }}</a-button>
-                        <a-button ml-1 size="small" danger type="primary" shape="circle" @click="onHandlePuncClean(scripts[k][scripts[k].length - 1])">X</a-button>
+                        <a-button ml-1 v-for="punc in puctuations" size="small" type="primary" shape="circle"
+                            @click="onHandlePuncSelect(scripts[k][scripts[k].length - 1], punc)">{{ punc }}</a-button>
+                        <a-button ml-1 size="small" shape="circle"
+                            @click="onHandlePuncClean(scripts[k][scripts[k].length - 1])">X</a-button>
                     </template>
                     <plus-square-outlined />
                 </a-popover>
@@ -38,17 +41,14 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['locate'])
-
-console.log(props.scripts)
-
 const puctuations = ['.', ',', '?', '!', '...']
 
 
 const rowStyle = (row) => {
     let isSelected = row[0].isSelected
-    console.log('rowStyle', isSelected)
-    
-    return { 
+    // console.log('rowStyle', isSelected)
+
+    return {
         'borderLeft': `5px solid hsl(${row[0].sentenceID % 6 * 60}, 100%, 80%)`,
         'backgroundColor': isSelected ? 'rgba(255, 248, 37, 0.3)' : 'transparent',
     }
@@ -76,21 +76,6 @@ const onHandelLocate = (time: number) => {
 //   console.log('change', i, startTime, endTime)
 // }
 // })
-
-
-// let sentences = ref([])
-// sentences = props.scripts
-
-// let groupedSentences = ref({})
-
-// filter sentenceID != -1
-// groupedSentences = props.scripts.filter((script) => script.sentenceID != -1)
-// groupby sentenceID
-// const gs = sentences.reduce((r, a) => {
-//   r[a.sentenceID] = [...r[a.sentenceID] || [], a]
-//   return r
-// }, {})
-// console.log(gs)
 </script>
 
 
@@ -127,5 +112,4 @@ const onHandelLocate = (time: number) => {
 .word {
     margin-right: 4px;
 }
-
 </style>

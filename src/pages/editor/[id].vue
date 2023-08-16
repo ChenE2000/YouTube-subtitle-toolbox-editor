@@ -1,7 +1,7 @@
 <template>
     <header flex="~ items-center">
         <h1 text="gray 3xl" font="bold" @click="goToHome">
-            <span text-primary>Subtitle</span> toolbox
+            <span style="color: #e93323;">Subtitle</span> toolbox
         </h1>
         <div ml-auto>
             <!-- <a-button @click="json.open = true">
@@ -16,28 +16,36 @@
         </div>
     </header>
 
+    <!-- <div>{{ currentTime }}/{{ videoCurTime }}/{{ videoDuration }} </div> -->
+    <a-progress :showInfo="false" :stroke-color="{
+        '0%': '#f9c710',
+        '100%': '#e93323',
+    }" :percent="videoCurTime / videoDuration * 100" />
     <!-- <div>startPoint: {{ startPoint }}</div> -->
     <!-- <div>numberOfTicks: {{ numberOfTicks }}</div> -->
     <!-- <div>isSelecting: {{ isSelecting }}</div> -->
     <!-- <div>{{ sentences }}</div> -->
     <!-- <div>indicatorLeft: {{ indicatorLeft }}</div> -->
-    <div>currentGroupID: {{ currentGroupID }}</div>
+    <!-- <div>currentGroupID: {{ currentGroupID }}</div> -->
     <!-- <div>groupedSentences: {{ groupedSentences }}</div> -->
     <!-- <div>ctrlPressed: {{ ctrlPressed }}</div> -->
     <!-- <div>videoCurTime: {{ videoCurTime }}</div> -->
-    <div>currentTime:
+    <!-- <div>currentTime:
         <a-input-number id="inputCurrentTime" v-model:value="currentTime" size="small" />
-    </div>
-
+    </div> -->
+    <!-- <div>timeInSight: {{ timeInSight }}</div> -->
     <div @mousewheel="onChangeZooming">zooming:
         <a-input-number id="inputZooming" v-model:value="zooming" :step="10" size="small" />
     </div>
-    <div>timeInSight: {{ timeInSight }}</div>
+
+    <a-button :disabled="markerInSight" @click="centerizeMarker" size="small">CenterizeMarker</a-button>
+    <a-button size="small" @click="onDeleteSelected">Delete Selectd</a-button>
     <!-- <div style="margin: 20px;"></div> -->
 
     <div flex="~">
-        <VideoPlayer :enable="false" @update:curTime="onUpdateCurTime" :curTime="videoCurTime" />
-        <script-list :scripts="groupedSentences" @locate="onHandleLocate" />
+        <VideoPlayer :id="props.id" :enable="true" :curTime="videoCurTime" :cursorTime="cursorTime"
+            @update:curTime="onUpdateCurTime" @update:loaded="onUpdateVideoLoaded" />
+        <ScriptList :scripts="groupedSentences" @locate="onHandleLocate" />
     </div>
 
 
@@ -45,13 +53,13 @@
         <div class="outer-container" @mousewheel="onMouseWheel" :style="{ 'width': `${timeLineTotalWidth}px` }">
             <div class="container" ref="container" @mousedown="onMouseDown" @mousemove="onMouseMove" @mouseup="onMouseUp">
                 <!-- :class="{ selected: div.isSelected }" -->
-                <div v-for="(div, index) in divs" :key="index" :style="boxStyle(div)" class="box" @click="onEditBox(div)">
+                <div v-for="(div, index) in divs" :key="index" :style="boxStyle(div)" class="box" @click="onEditBox(div)"
+                    @dblclick="videoCurTime = div.time">
                     {{ div.word }}
                 </div>
 
                 <div v-if="isSelecting" :style="selectionStyle" class="selection"></div>
                 <a-button v-if="noWordInSight" @click="jumpToNext">jump to next</a-button>
-
             </div>
             <div class="time-ruler">
                 <div v-for="n in numberOfTicks" :key="n" :style="{ 'margin-left': `${(n - 1) * timeUnit * zooming}px` }"
@@ -70,8 +78,11 @@
 
     <a-modal v-model:open="edit.open" title="Change Content">
         <template #footer>
-            <a-button  key="capitalize" @click="onCapitalize">
+            <a-button key="capitalize" @click="onCapitalize">
                 Capitalize
+            </a-button>
+            <a-button key="wrap" @click="onWrap">
+                Wrap
             </a-button>
             <!-- <a-button type="primary" key="submit" @click="edit.open = false">
                 Submit
@@ -81,23 +92,36 @@
     </a-modal>
 
 
-    <a-modal :width="800" v-model:open="ass.open" title=".ASS Result">
-        <template #footer>
-            <!-- @click="handleCopyASS(ass.content)" -->
-            <a-button type="primary" key="back" :icon="h(SnippetsOutlined)">Copy to Clipboard</a-button>
-        </template>
-        <div>
+    <a-modal :width="800" v-model:open="ass.open" :footer="null" title=".ASS Result">
+        <!-- <template #footer>
+            <a-button type="primary" key="back" :icon="h(SnippetsOutlined)"
+            @click="handleCopy(assStr)">Copy to Clipboard</a-button>
+        </template> -->
+        <a-textarea :value="assStr" placeholder="Basic usage" :rows="8" />
+        <!-- <div>
             <div v-for="row in ass.content">{{ row }}</div>
-        </div>
+        </div> -->
     </a-modal>
-    <!-- <a-modal @ok="loadData" v-model:open="json.open" title="vtt.json">
-        <a-textarea v-model:value="json.content" :rows="8" />
-    </a-modal> -->
-    <a-modal v-model:open="save.open" title="Save" :footer="null">
+    <a-modal v-model:open="save.open" title="Save" :width="300" :footer="null">
         <!-- <a-textarea :value="sentencesStr" :rows="8" /> -->
         <!-- {{ save.content }} -->
-        <a-button type="primary" @click="handleCopy(save.content)" :icon="h(SnippetsOutlined)">Copy to Clipboard</a-button>
+        <div flex flex-col gap-2>
+            <a-button type="primary" @click="handleCopy(save.content)" :icon="h(SnippetsOutlined)">Copy to Clipboard</a-button>
+            <a-button type="primary" @click="handleSaveToServer" :icon="h(CloudServerOutlined)">Save to Server</a-button>
+            <a-button type="primary" @click="handleSaveFile" :icon="h(DownloadOutlined)">Save to Local</a-button>
+
+        </div>
+
     </a-modal>
+
+    <!-- float button -->
+    <a-float-button tooltip="HELP INFO" :style="{
+        right: '24px',
+    }">
+        <template #icon>
+            <FileTextOutlined />
+        </template>
+    </a-float-button>
 </template>
   
 
@@ -209,6 +233,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    /* transition: all 0.2s linear 0s; */
+    transition: transform 0.5s ease-in-out;
 }
 
 .selected {
@@ -231,11 +257,12 @@
 
 <script setup lang="ts">
 import { message } from 'ant-design-vue';
-import { SnippetsOutlined } from '@ant-design/icons-vue';
-import subtitles from "~/assets/script.json";
+import { SnippetsOutlined, FileTextOutlined, CloudServerOutlined, DownloadOutlined } from '@ant-design/icons-vue';
+// import subtitles from "~/assets/script.json";
 import ScriptList from "~/components/ScriptList.vue";
 import { formatTime } from '../../utils/TimeFormatter'
 import VideoPlayer from "~/components/VideoPlayer.vue";
+import vttDataService from "~/api/vtt";
 
 interface Coord {
     x: number
@@ -250,12 +277,14 @@ interface Word {
     isClicked: boolean
 }
 
-defineProps<{
+const props = defineProps<{
     id: string
 }>();
 
+let subtitles = await vttDataService.getParsedVtt(props.id)
+console.log(subtitles)
 let router = useRouter()
-let sentences = ref(subtitles.sentences.map((sentence) => {
+let sentences = ref(subtitles.data.sentences.map((sentence) => {
     return {
         isSelected: false,
         word: sentence.chrs,
@@ -269,6 +298,7 @@ let sentences = ref(subtitles.sentences.map((sentence) => {
 let maxSentenceID = Math.max(...sentences.value.map((sentence) => sentence.sentenceID))
 
 let videoCurTime = ref(0)
+let videoDuration = ref(0)
 let currentTime = ref(0)
 let cursorTime = ref(0)
 let zooming = ref(110)
@@ -282,7 +312,7 @@ let timeUnit = ref(1)
 //    let sentences = ref(sentences)
 let divs = ref([] as Word[])
 let groupedSentences = ref({})
-let currentGroupID = ref(maxSentenceID+1)
+let currentGroupID = ref(maxSentenceID + 1)
 let wordLeft = ref(0)
 let edit = ref({
     open: false as boolean,
@@ -302,22 +332,11 @@ let save = ref({
 })
 
 
-
-
-// mounted() {
-//     window.addEventListener("keydown", this.handleKeydown);
-//     window.addEventListener("keyup", this.handleKeyup);
-// },
 // beforeUnmount() {
 //     window.removeEventListener("keydown", this.handleKeydown);
 //     window.removeEventListener("keyup", this.handleKeyup);
 // },
 
-// const handleKeydown = (event) => {
-//     if (event.key === "Control") {
-//         ctrlPressed.value = true;
-//     }
-// }
 
 // const handleKeyup = (event) => {
 //     if (event.key === "Control") {
@@ -327,6 +346,21 @@ let save = ref({
 const onCapitalize = () => {
     let word = edit.value.content.word
     edit.value.content.word = word.charAt(0).toUpperCase() + word.slice(1)
+}
+const onWrap = () => {
+    // wrap using ""
+    // if edit.value.content.word has "" already
+    edit.value.content.word = `“${edit.value.content.word}”`
+}
+
+
+const handleSaveFile = () => {
+    const data = vttDataService.download(props.id, "vtt.json")
+    // TODO save data to user's fs
+
+}
+const onUpdateVideoLoaded = (e: number) => {
+    videoDuration.value = e
 }
 
 const goToHome = () => {
@@ -340,10 +374,14 @@ const onHandleLocate = (time: number) => {
     currentTime.value = Math.floor(time)
 }
 
-const markerStyle = computed(()=> {
+const markerInSight = computed(() => {
+    return timeInSight.value.start <= videoCurTime.value && videoCurTime.value <= timeInSight.value.end
+})
+
+const markerStyle = computed(() => {
     const visible = timeInSight.value.start <= videoCurTime.value && videoCurTime.value <= timeInSight.value.end
     return {
-        display: visible?"block":"none",
+        display: visible ? "block" : "none",
         left: `${(videoCurTime.value - currentTime.value) * zooming.value}px`
     };
 })
@@ -362,6 +400,10 @@ const selectionStyle = computed(() => {
     };
 })
 
+const assStr = computed(() => {
+    return ass.value.content.join('\n')
+})
+
 const noWordInSight = computed(() => {
     return divs.value.length === 0;
 })
@@ -378,9 +420,21 @@ const timeInSight = computed(() => {
 
 })
 
+const centerizeMarker = () => {
+    currentTime.value = Math.floor(videoCurTime.value - numberOfTicks.value / 2)
+}
+
 const onHandleSave = () => {
     save.value.open = true
     save.value.content = sentencesStr()
+}
+
+const onDeleteSelected = () => {
+    console.log(sentences.value.filter((sentence) => sentence.isSelected).length)
+    sentences.value = sentences.value.filter((sentence) => !sentence.isSelected)
+    // fresh div 
+    currentTime.value++
+    currentTime.value--
 }
 
 const sentencesStr = () => {
@@ -406,19 +460,22 @@ watch(timeInSight, () => {
     }).length
 }, { immediate: true })
 
+// watch(videoCurTime, () => {
+//     currentTime.value = videoCurTime.value
+// }, { immediate: true })
 
 
 // formatTime: formatTime,
 const boxStyle = (div: Word) => {
     if (div.sentenceID == -1) {
         return {
-            
+
             'background-color': `hsl(0, 0%, 90%)`,
             'left': `${(div.time - currentTime.value) * zooming.value}px`
         }
     }
     let border = div.isSelected ? '2' : '0'
-    
+
     return {
         // 根据sentenceID%6分配一个背景颜色
         'border': `${border}px solid rgb(255, 123, 0)`,
@@ -429,6 +486,20 @@ const boxStyle = (div: Word) => {
 
 const jumpToNext = () => {
     currentTime.value = Math.floor(sentences.value[sentences.value.length - wordLeft.value].time)
+}
+
+const handleSaveToServer = () => {
+    vttDataService.updateVtt(props.id, "vtt.json", {
+        "updated_at": new Date().toISOString().slice(0, 19).replace('T', ' '),
+        "sentences": sentences.value.map((sentence) => {
+            return {
+                "chrs": sentence.word,
+                "start_time": sentence.time,
+                "sentence_id": sentence.sentenceID
+            }
+        })
+    })
+    message.success(`Saved to Server`)
 }
 
 const onMouseWheel = (e: any) => {
@@ -475,6 +546,10 @@ const checkSelection = () => {
 
     // 框选区域太小时，不进行检测
     if (right - left < 10 || bottom - top < 5) return;
+    // set all isSelected to false
+    // sentences.value = sentences.value.forEach((div) => {
+    //     div.isSelected = false;
+    // })
 
     divs.value.forEach((div, index) => {
         // get all div in container
@@ -489,14 +564,17 @@ const checkSelection = () => {
         ) {
             div.isSelected = true;
             div.sentenceID = currentGroupID.value
-        } else {
-            div.isSelected = false;
         }
     })
 }
 
 const onMouseUp = () => {
     console.log("mouse up")
+    // set all isSelected to false
+    sentences.value = sentences.value.map((div) => {
+        div.isSelected = false;
+        return div;
+    })
     isSelecting.value = false;
     // 在此处检测框选范围
     checkSelection();
@@ -544,8 +622,8 @@ const exportASS = () => {
     Object.keys(exportSentences).forEach(k => {
         // console.log(k)
         let startTime = formatTime(exportSentences[k][0].time)
-        let endTime = formatTime(exportSentences[k][exportSentences[k].length - 1].time+0.015)
-        exportSentences[k] = exportSentences[k].filter((item) => item!=="")
+        let endTime = formatTime(exportSentences[k][exportSentences[k].length - 1].time + 0.015)
+        exportSentences[k] = exportSentences[k].filter((item) => item !== "")
         let text = exportSentences[k].map((sentence) => sentence.word).join(" ")
         let row = `Dialogue: 0,${startTime},${endTime},Default,,0,0,0,,${text}`
         results.push(row)
